@@ -14,6 +14,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
+private const val LOADING_TIME = 2000L
+private const val NOT_FOUND_ERROR_MESSAGE = "user not found!!!"
+private val TEST_USER = User(
+    id = "123123",
+    name = "Marc",
+    birthday = LocalDate.parse("1986-10-12")
+)
+
 class UserViewTest {
     private val mockHttp = MockHttp()
     private val userService = mockHttp.getUserService()
@@ -23,68 +31,44 @@ class UserViewTest {
     private val scope = TestScope()
     private val dispatcherProvider = DispatcherProvider(scope)
 
-    private val testUser = User(
-        id = "123123",
-        name = "Marc",
-        birthday = LocalDate.parse("1986-10-12")
-    )
+    private lateinit var sut: UserViewModel
 
     @Test
     fun `Simple success case`() {
-        mockHttp.mock("getUser") { testUser }
-        sessionManager.logIn(testUser.id)
+        givenBackendUser()
+        givenLoggedIn()
 
         scope.runTest {
-            val sut = UserViewModel(
-                userRepository,
-                sessionManager,
-                dateProvider,
-                dispatcherProvider
-            )
+            whenInitializing()
 
             runCurrent()
 
-            assertEquals(
-                UserViewModel.ViewUserData("Marc", "37 years"),
-                sut.viewData
+            thenUserShown(
+                name = "Marc",
+                age = "37 years"
             )
         }
     }
 
     @Test
     fun `Is first loading and empty, then done loading and data is present`() {
-        val processingTime = 2000L
-
-        mockHttp.mock("getUser") {
-            delay(processingTime)
-            testUser
-        }
-        sessionManager.logIn(testUser.id)
+        givenBackendUser(loadingTime = LOADING_TIME)
+        givenLoggedIn()
 
         scope.runTest {
-            val sut = UserViewModel(
-                userRepository,
-                sessionManager,
-                dateProvider,
-                dispatcherProvider
-            )
+            whenInitializing()
 
             runCurrent()
 
-            assertTrue(sut.isLoading)
+            thenLoading()
+            thenEmptyUserDataShown()
 
-            assertEquals(
-                UserViewModel.ViewUserData.EMPTY,
-                sut.viewData
-            )
+            advanceTimeBy(LOADING_TIME + 1)
 
-            advanceTimeBy(processingTime + 1)
-
-            assertFalse(sut.isLoading)
-
-            assertEquals(
-                UserViewModel.ViewUserData("Marc", "37 years"),
-                sut.viewData
+            thenNotLoading()
+            thenUserShown(
+                name = "Marc",
+                age = "37 years"
             )
         }
     }
@@ -92,31 +76,65 @@ class UserViewTest {
     @Test(expected = IllegalStateException::class)
     fun `When user is not logged in, an exception is thrown`() {
         scope.runTest {
-            UserViewModel(userRepository, sessionManager, dateProvider, dispatcherProvider)
+            whenInitializing()
         }
     }
 
     @Test
     fun `When user is not found, an error message is shown to the user`() {
-        val errorMessage = "user not found!!!"
-
-        mockHttp.mock("getUser") { throw Exception(errorMessage) }
-        sessionManager.logIn(testUser.id)
+        givenBackendUser(failsWith = NOT_FOUND_ERROR_MESSAGE)
+        givenLoggedIn()
 
         scope.runTest {
-            val sut = UserViewModel(
-                userRepository,
-                sessionManager,
-                dateProvider,
-                dispatcherProvider
-            )
+            whenInitializing()
 
             runCurrent()
 
-            assertEquals(
-                errorMessage,
-                sut.errorMessage
-            )
+            thenErrorMessageShown()
         }
     }
+
+    private fun givenBackendUser(
+        user: User = TEST_USER,
+        loadingTime: Long = 0,
+        failsWith: String? = null
+    ) {
+        mockHttp.mock("getUser") {
+            delay(loadingTime)
+            if (failsWith == null)
+                user
+            else
+                throw Exception(failsWith)
+        }
+    }
+
+    private fun givenLoggedIn() {
+        sessionManager.logIn(TEST_USER.id)
+    }
+
+    private fun whenInitializing() {
+        sut = UserViewModel(
+            userRepository,
+            sessionManager,
+            dateProvider,
+            dispatcherProvider
+        )
+    }
+
+    private fun thenUserShown(name: String, age: String) =
+        assertEquals(UserViewModel.ViewUserData(name, age), sut.viewData)
+
+    private fun thenEmptyUserDataShown() =
+        thenUserShown(
+            name = "",
+            age = ""
+        )
+
+    private fun thenErrorMessageShown() {
+        assertEquals(NOT_FOUND_ERROR_MESSAGE, sut.errorMessage)
+    }
+
+    private fun thenLoading() = assertTrue(sut.isLoading)
+
+    private fun thenNotLoading() = assertFalse(sut.isLoading)
 }
