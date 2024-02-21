@@ -122,7 +122,7 @@ class UserViewTest {
     }
 
     private fun thenUserShown(name: String, age: String) =
-        assertEquals(UserViewModel.ViewUserData(name, age), sut.viewData)
+        assertEquals(UserViewModel.ViewUserData(name, age), sut.state.value.viewData)
 
     private fun thenEmptyUserDataShown() =
         thenUserShown(
@@ -131,10 +131,10 @@ class UserViewTest {
         )
 
     private fun thenErrorMessageShown() {
-        assertEquals(NOT_FOUND_ERROR_MESSAGE, sut.errorMessage)
+        assertEquals(NOT_FOUND_ERROR_MESSAGE, sut.state.value.errorMessage)
     }
 
-    private fun thenLoading() = assertTrue(sut.isLoading)
+    private fun thenLoading() = assertTrue(sut.state.value.isLoading)
 
-    private fun thenNotLoading() = assertFalse(sut.isLoading)
+    private fun thenNotLoading() = assertFalse(sut.state.value.isLoading)
 }

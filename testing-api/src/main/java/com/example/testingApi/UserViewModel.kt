@@ -1,6 +1,9 @@
 package com.example.testingApi
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class UserViewModel(
@@ -11,9 +14,8 @@ class UserViewModel(
 ) {
     private val scope = CoroutineScope(dispatcherProvider.main)
 
-    var viewData: ViewUserData = ViewUserData.EMPTY
-    var errorMessage: String? = null
-    var isLoading: Boolean = false
+    private val _state = MutableStateFlow(State())
+    val state = _state.asStateFlow()
 
     init {
         scope.launch {
@@ -36,18 +38,30 @@ class UserViewModel(
     }
 
     private fun applyUser(value: User) {
-        viewData = ViewUserData(
-            name = value.name,
-            age = "${calculateAge(dateProvider(), value.birthday)} years"
-        )
+        _state.update {
+            it.copy(
+                viewData = ViewUserData(
+                    name = value.name,
+                    age = "${calculateAge(dateProvider(), value.birthday)} years"
+                )
+            )
+        }
     }
 
     private fun setIsLoading(value: Boolean) {
-        isLoading = value
+        _state.update {
+            it.copy(
+                isLoading = value
+            )
+        }
     }
 
     private fun setError(value: String?) {
-        errorMessage = value
+        _state.update {
+            it.copy(
+                errorMessage = value
+            )
+        }
     }
 
     private fun resetError() = setError(null)
@@ -63,4 +77,10 @@ class UserViewModel(
             )
         }
     }
+
+    data class State(
+        var viewData: ViewUserData = ViewUserData.EMPTY,
+        var errorMessage: String? = null,
+        var isLoading: Boolean = false,
+    )
 }
