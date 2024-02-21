@@ -2,6 +2,8 @@
 
 package com.example.testingApi
 
+import io.mockk.coEvery
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
@@ -23,9 +25,7 @@ private val TEST_USER = User(
 )
 
 class UserViewTest {
-    private val mockHttp = MockHttp()
-    private val userService = mockHttp.getUserService()
-    private val userRepository = UserRepository(userService)
+    private val userRepository = mockk<UserRepository>()
     private val sessionManager = SessionManager()
     private val dateProvider = DateProvider { LocalDate.parse("2024-02-21") }
     private val scope = TestScope()
@@ -99,7 +99,7 @@ class UserViewTest {
         loadingTime: Long = 0,
         failsWith: String? = null
     ) {
-        mockHttp.mock("getUser") {
+        coEvery { userRepository.getUser(any()) } coAnswers {
             delay(loadingTime)
             if (failsWith == null)
                 user
